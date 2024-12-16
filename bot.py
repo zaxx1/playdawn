@@ -357,6 +357,7 @@ class Dawn:
 
                     await self.process_accounts(app_id, token, email, use_proxy)
                     self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
+                    await asyncio.sleep(3)
 
                 seconds = 120
                 while seconds > 0:
