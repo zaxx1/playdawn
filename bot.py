@@ -64,15 +64,21 @@ class Dawn:
                         f.write(content)
 
                     self.proxies = content.splitlines()
-                    print(f"{Fore.GREEN}Proxies successfully downloaded.{Style.RESET_ALL}")
-                    print(f"{Fore.YELLOW}Loaded {len(self.proxies)} proxies.{Style.RESET_ALL}")
+                    if not self.proxies:
+                        self.log(f"{Fore.RED + Style.BRIGHT}No proxies found in the downloaded list!{Style.RESET_ALL}")
+                        return
+                    
+                    self.log(f"{Fore.GREEN + Style.BRIGHT}Proxies successfully downloaded.{Style.RESET_ALL}")
+                    self.log(f"{Fore.YELLOW + Style.BRIGHT}Loaded {len(self.proxies)} proxies.{Style.RESET_ALL}")
+                    self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
                     await asyncio.sleep(3)
         except Exception as e:
-            print(f"{Fore.RED}Failed to load proxies: {e}{Style.RESET_ALL}")
+            self.log(f"{Fore.RED + Style.BRIGHT}Failed to load proxies: {e}{Style.RESET_ALL}")
             return []
 
     def get_next_proxy(self):
         if not self.proxies:
+            self.log(f"{Fore.RED + Style.BRIGHT}No proxies available!{Style.RESET_ALL}")
             return None
 
         proxy = self.proxies[self.proxy_index]
@@ -107,6 +113,10 @@ class Dawn:
         local, domain = email.split('@', 1)
         hide_local = local[:3] + '*' * 3 + local[-3:]
         return f"{hide_local}@{domain}"
+    
+    def hide_token(self, token):
+        hide_token = token[:3] + '*' * 3 + token[-3:]
+        return hide_token
         
     async def user_data(self, app_id: str, token: str, proxy=None):
         url = f"https://www.aeropres.in/api/atom/v1/userreferral/getpoint?appid={app_id}"
@@ -115,11 +125,19 @@ class Dawn:
             "Authorization": f"Berear {token}",
             "Content-Type": "application/json",
         }
-        if proxy:
-            connector = ProxyConnector.from_url(proxy)
+        connector = ProxyConnector.from_url(proxy) if proxy else None
         try:
             async with ClientSession(connector=connector, timeout=ClientTimeout(total=20)) as session:
                 async with session.get(url=url, headers=headers) as response:
+                    if response.status == 400:
+                        self.log(
+                            f"{Fore.MAGENTA + Style.BRIGHT}[ Token{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} {self.hide_token(token)} {Style.RESET_ALL}"
+                            f"{Fore.RED + Style.BRIGHT}Is Expired{Style.RESET_ALL}"
+                            f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}"
+                        )
+                        return
+                    
                     response.raise_for_status()
                     result = await response.json()
                     return result['data']['rewardPoint']
@@ -136,8 +154,7 @@ class Dawn:
             "Content-Type": "application/json",
         }
         for attempt in range(retries):
-            if proxy:
-                connector = ProxyConnector.from_url(proxy)
+            connector = ProxyConnector.from_url(proxy) if proxy else None
             try:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=10)) as session:
                     async with session.post(url=url, headers=headers, data=data) as response:
@@ -147,15 +164,29 @@ class Dawn:
                 if attempt < retries - 1:
                     continue
                 return None
+            
+    async def question(self):
+        while True:
+            try:
+                print("1. Run With Proxy")
+                print("2. Run Without Proxy")
+                choose = int(input("Choose [1/2] -> ").strip())
+
+                if choose in [1, 2]:
+                    print(f"{Fore.GREEN + Style.BRIGHT}Run {'With' if choose == 1 else 'Without'} Proxy Selected.{Style.RESET_ALL}")
+                    await asyncio.sleep(1)
+                    return choose
+                else:
+                    print(f"{Fore.RED + Style.BRIGHT}Please enter either 1 or 2.{Style.RESET_ALL}")
+            except ValueError:
+                print(f"{Fore.RED + Style.BRIGHT}Invalid input. Enter a number (1 or 2).{Style.RESET_ALL}")
         
-    async def process_accounts(self, app_id: str, token: str, email: str):
-        user = None
-        proxies = self.get_next_proxy()
-        proxy = self.check_proxy_schemes(proxies)
+    async def process_accounts(self, app_id: str, token: str, email: str, use_proxy: bool):
         hide_email = self.hide_email(email)
-        
-        while user is None:
-            user = await self.user_data(app_id, token, proxy)
+        proxy = None
+
+        if not use_proxy:
+            user = await self.user_data(app_id, token)
             
             if not user:
                 self.log(
@@ -165,61 +196,120 @@ class Dawn:
                     f"{Fore.WHITE + Style.BRIGHT} With Proxy {proxy} {Style.RESET_ALL}"
                     f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
                 )
-                await asyncio.sleep(1)
-            
-                print(
-                    f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                    f"{Fore.BLUE + Style.BRIGHT}Try With The Next Proxy,{Style.RESET_ALL}"
-                    f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
-                    end="\r",
-                    flush=True
+                return
+
+            total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
+            self.log(
+                f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
+                f"{Fore.GREEN + Style.BRIGHT}Login Success{Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT} ] [ Balance{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} Points {Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+            )
+            await asyncio.sleep(1)
+
+            print(
+                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                f"{Fore.BLUE + Style.BRIGHT}Try to Sent Ping,{Style.RESET_ALL}"
+                f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
+                end="\r",
+                flush=True
+            )
+            await asyncio.sleep(1)
+
+            keepalive = await self.send_keepalive(app_id, token, email)
+            if not keepalive:
+                self.log(
+                    f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
+                    f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
                 )
+                return
+
+            if keepalive:
+                self.log(
+                    f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
+                    f"{Fore.GREEN + Style.BRIGHT} Keep Alive Recorded {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+
+        else:
+            user = None
+            proxies = self.get_next_proxy()
+            proxy = self.check_proxy_schemes(proxies)
+            
+            while user is None:
+                user = await self.user_data(app_id, token, proxy)
                 
-                proxies = self.get_next_proxy()
-                proxy = self.check_proxy_schemes(proxies)
-                continue
+                if not user:
+                    self.log(
+                        f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
+                        f"{Fore.RED + Style.BRIGHT}Login Failed{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} With Proxy {proxy} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                    )
+                    await asyncio.sleep(1)
+                
+                    print(
+                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                        f"{Fore.BLUE + Style.BRIGHT}Try With The Next Proxy,{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
+                        end="\r",
+                        flush=True
+                    )
+                    
+                    proxies = self.get_next_proxy()
+                    proxy = self.check_proxy_schemes(proxies)
+                    continue
 
-        total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
-        self.log(
-            f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
-            f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
-            f"{Fore.GREEN + Style.BRIGHT}Login Success{Style.RESET_ALL}"
-            f"{Fore.MAGENTA + Style.BRIGHT} ] [ Balance{Style.RESET_ALL}"
-            f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} Points {Style.RESET_ALL}"
-            f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-        )
-        await asyncio.sleep(1)
-
-        print(
-            f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-            f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-            f"{Fore.BLUE + Style.BRIGHT}Try to Sent Ping,{Style.RESET_ALL}"
-            f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
-            end="\r",
-            flush=True
-        )
-        await asyncio.sleep(1)
-
-        keepalive = await self.send_keepalive(app_id, token, email, proxy)
-        if not keepalive:
+            total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
             self.log(
-                f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
-                f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
+                f"{Fore.GREEN + Style.BRIGHT}Login Success{Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT} ] [ Balance{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} Points {Style.RESET_ALL}"
                 f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
             )
-            return
+            await asyncio.sleep(1)
 
-        if keepalive:
-            self.log(
-                f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
-                f"{Fore.GREEN + Style.BRIGHT} Keep Alive Recorded {Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+            print(
+                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                f"{Fore.BLUE + Style.BRIGHT}Try to Sent Ping,{Style.RESET_ALL}"
+                f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
+                end="\r",
+                flush=True
             )
+            await asyncio.sleep(1)
+
+            keepalive = await self.send_keepalive(app_id, token, email, proxy)
+            if not keepalive:
+                self.log(
+                    f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
+                    f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+                return
+
+            if keepalive:
+                self.log(
+                    f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
+                    f"{Fore.GREEN + Style.BRIGHT} Keep Alive Recorded {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                )
     
     async def main(self):
         try:
@@ -228,21 +318,28 @@ class Dawn:
                 self.log(f"{Fore.RED}No accounts loaded from 'accounts.json'.{Style.RESET_ALL}")
                 return
             
+            use_proxy = await self.question()
+            use_proxy = (use_proxy == 1)
+
+            self.clear_terminal()
+            self.welcome()
+            self.log(
+                f"{Fore.GREEN + Style.BRIGHT}Account's Total: {Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT}{len(accounts)}{Style.RESET_ALL}"
+            )
+            self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
+
             last_proxy_update = None
             proxy_update_interval = 1800
 
+            if use_proxy:
+                await self.load_proxies()
+                last_proxy_update = datetime.now()
+
             while True:
-                if not last_proxy_update or (datetime.now() - last_proxy_update).total_seconds() > proxy_update_interval:
+                if use_proxy and (not last_proxy_update or (datetime.now() - last_proxy_update).total_seconds() > proxy_update_interval):
                     await self.load_proxies()
                     last_proxy_update = datetime.now()
-
-                self.clear_terminal()
-                self.welcome()
-                self.log(
-                    f"{Fore.GREEN + Style.BRIGHT}Account's Total: {Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT}{len(accounts)}{Style.RESET_ALL}"
-                )
-                self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
 
                 for account in accounts:
                     app_id = self.generate_app_id()
@@ -258,7 +355,7 @@ class Dawn:
                         )
                         continue
 
-                    await self.process_accounts(app_id, token, email)
+                    await self.process_accounts(app_id, token, email, use_proxy)
                     self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
 
                 seconds = 120
@@ -268,6 +365,8 @@ class Dawn:
                         f"{Fore.CYAN+Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
                         f"{Fore.WHITE+Style.BRIGHT} {formatted_time} {Style.RESET_ALL}"
                         f"{Fore.CYAN+Style.BRIGHT}... ]{Style.RESET_ALL}",
+                        f"{Fore.WHITE+Style.BRIGHT} | {Style.RESET_ALL}",
+                        f"{Fore.BLUE+Style.BRIGHT}All Accounts Have Been Processed.{Style.RESET_ALL}",
                         end="\r"
                     )
                     await asyncio.sleep(1)
