@@ -53,7 +53,7 @@ class Dawn:
         minutes, seconds = divmod(remainder, 60)
         return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
     
-    async def load_proxies(self):
+    async def load_auto_proxies(self):
         url = "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt"
         try:
             async with ClientSession(timeout=ClientTimeout(total=20)) as session:
@@ -75,6 +75,23 @@ class Dawn:
         except Exception as e:
             self.log(f"{Fore.RED + Style.BRIGHT}Failed to load proxies: {e}{Style.RESET_ALL}")
             return []
+        
+    async def load_manual_proxy(self):
+        try:
+            if not os.path.exists('manual_proxy.txt'):
+                print(f"{Fore.RED + Style.BRIGHT}Proxy file 'manual_proxy.txt' not found!{Style.RESET_ALL}")
+                return
+
+            with open('manual_proxy.txt', "r") as f:
+                proxies = f.read().splitlines()
+
+            self.proxies = proxies
+            self.log(f"{Fore.YELLOW + Style.BRIGHT}Loaded {len(self.proxies)} proxies.{Style.RESET_ALL}")
+            self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
+            await asyncio.sleep(3)
+        except Exception as e:
+            print(f"{Fore.RED + Style.BRIGHT}Failed to load manual proxies: {e}{Style.RESET_ALL}")
+            self.proxies = []
 
     def get_next_proxy(self):
         if not self.proxies:
@@ -90,7 +107,7 @@ class Dawn:
         if any(proxies.startswith(scheme) for scheme in schemes):
             return proxies
         
-        return f"socks5://{proxies}"
+        return f"http://{proxies}"
 
     def load_accounts(self):
         try:
@@ -117,6 +134,17 @@ class Dawn:
     def hide_token(self, token):
         hide_token = token[:3] + '*' * 3 + token[-3:]
         return hide_token
+        
+    async def cek_ip(self, proxy=None):
+        connector = ProxyConnector.from_url(proxy) if proxy else None
+        try:
+            async with ClientSession(connector=connector, timeout=ClientTimeout(total=20)) as session:
+                async with session.get('https://ipinfo.io/json') as response:
+                    response.raise_for_status()
+                    return await response.json()
+        except (Exception, ClientResponseError) as e:
+            self.log(f"Error with proxy {proxy}: {e}")
+            return None
         
     async def user_data(self, app_id: str, token: str, proxy=None):
         url = f"https://www.aeropres.in/api/atom/v1/userreferral/getpoint?appid={app_id}"
@@ -168,12 +196,18 @@ class Dawn:
     async def question(self):
         while True:
             try:
-                print("1. Run With Proxy")
+                print("1. Run With Auto Proxy")
+                print("2. Run With Manual Proxy")
                 print("2. Run Without Proxy")
                 choose = int(input("Choose [1/2] -> ").strip())
 
-                if choose in [1, 2]:
-                    print(f"{Fore.GREEN + Style.BRIGHT}Run {'With' if choose == 1 else 'Without'} Proxy Selected.{Style.RESET_ALL}")
+                if choose in [1, 2, 3]:
+                    proxy_type = (
+                        "With Auto Proxy" if choose == 1 else 
+                        "With Manual Proxy" if choose == 2 else 
+                        "Without Proxy"
+                    )
+                    print(f"{Fore.GREEN + Style.BRIGHT}Run {proxy_type} Selected.{Style.RESET_ALL}")
                     await asyncio.sleep(1)
                     return choose
                 else:
@@ -186,6 +220,19 @@ class Dawn:
         proxy = None
 
         if not use_proxy:
+            my_ip = await self.cek_ip()
+            if my_ip:
+                self.log(
+                    f"{Fore.MAGENTA + Style.BRIGHT}[ IP{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {my_ip['ip']} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Country{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {my_ip['country']} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {my_ip['region']} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+            await asyncio.sleep(1)
+
             user = await self.user_data(app_id, token)
             
             if not user:
@@ -197,7 +244,7 @@ class Dawn:
                     f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
                 )
                 return
-
+            
             total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
             self.log(
                 f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
@@ -245,6 +292,19 @@ class Dawn:
             proxy = self.check_proxy_schemes(proxies)
             
             while user is None:
+                my_ip = await self.cek_ip(proxy)
+                if my_ip:
+                    self.log(
+                        f"{Fore.MAGENTA + Style.BRIGHT}[ IP{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} {my_ip['ip']} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}] [ Country{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} {my_ip['country']} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} {my_ip['region']} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                    )
+                await asyncio.sleep(1)
+
                 user = await self.user_data(app_id, token, proxy)
                 
                 if not user:
@@ -270,6 +330,7 @@ class Dawn:
                     proxy = self.check_proxy_schemes(proxies)
                     continue
 
+            await self.cek_ip(proxy)
             total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
             self.log(
                 f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
@@ -318,8 +379,11 @@ class Dawn:
                 self.log(f"{Fore.RED}No accounts loaded from 'accounts.json'.{Style.RESET_ALL}")
                 return
             
-            use_proxy = await self.question()
-            use_proxy = (use_proxy == 1)
+            use_proxy_choice = await self.question()
+
+            use_proxy = False
+            if use_proxy_choice in [1, 2]:
+                use_proxy = True
 
             self.clear_terminal()
             self.welcome()
@@ -332,14 +396,17 @@ class Dawn:
             last_proxy_update = None
             proxy_update_interval = 1800
 
-            if use_proxy:
-                await self.load_proxies()
+            if use_proxy and use_proxy_choice == 1:
+                await self.load_auto_proxies()
                 last_proxy_update = datetime.now()
+            elif use_proxy and use_proxy_choice == 2:
+                await self.load_manual_proxy()
 
             while True:
-                if use_proxy and (not last_proxy_update or (datetime.now() - last_proxy_update).total_seconds() > proxy_update_interval):
-                    await self.load_proxies()
-                    last_proxy_update = datetime.now()
+                if use_proxy and use_proxy_choice == 1:
+                    if not last_proxy_update or (datetime.now() - last_proxy_update).total_seconds() > proxy_update_interval:
+                        await self.load_auto_proxies()
+                        last_proxy_update = datetime.now()
 
                 for account in accounts:
                     app_id = self.generate_app_id()

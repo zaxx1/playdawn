@@ -7,9 +7,11 @@ Use Code : 02lt4r
 ## Fitur
 
   - Auto Get Account Information
-  - Auto Run With or Without Proxy
-  - Auto Use [Monosans Proxy](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt)
-  - Auto Renew Proxy
+  - Auto Run With Manual Proxy if u Choose 1
+  - Auto Run With Auto Proxy if u Choose 2
+  - Auto Use [Monosans Proxy](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt) if u Choose Run With Auto Proxy
+  - Auto Renew Proxy if u Choose Run With Auto Proxy
+  - Auto Run Without Proxy if u Choose 3
   - Auto Send Keep-Alive
   - Multi Account
 
@@ -47,6 +49,16 @@ Pastikan Anda telah menginstal Python3.9 dan PIP.
             "Token": "your_berear_token 2"
         }
     ]
+  ```
+- **manual_proxy.txt:** Anda akan menemukan file `manual_proxy.txt` di dalam direktori proyek. Pastikan `manual_proxy.txt` berisi data yang sesuai dengan format yang diharapkan oleh skrip. Berikut adalah contoh format file:
+  ```bash
+    ip:port #http or socks5 - change schemes in line 110
+    http://ip:port
+    socks4://ip:port
+    socks5://ip:port
+    http://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
+    socks4://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
+    socks5://ip:port@user:pass #idk its work or not, cuase i don't have authentic proxy
   ```
 
 ## Jalankan
