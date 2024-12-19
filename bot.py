@@ -198,8 +198,8 @@ class Dawn:
             try:
                 print("1. Run With Auto Proxy")
                 print("2. Run With Manual Proxy")
-                print("2. Run Without Proxy")
-                choose = int(input("Choose [1/2] -> ").strip())
+                print("3. Run Without Proxy")
+                choose = int(input("Choose [1/2/3] -> ").strip())
 
                 if choose in [1, 2, 3]:
                     proxy_type = (
