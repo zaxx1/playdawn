@@ -143,7 +143,6 @@ class Dawn:
                     response.raise_for_status()
                     return await response.json()
         except (Exception, ClientResponseError) as e:
-            self.log(f"Error with proxy {proxy}: {e}")
             return None
         
     async def user_data(self, app_id: str, token: str, proxy=None):
