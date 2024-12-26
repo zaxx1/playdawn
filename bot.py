@@ -161,9 +161,9 @@ class Dawn:
         except (Exception, ClientResponseError) as e:
             return None
         
-    async def send_keepalive(self, app_id: str, token: str, email: str, proxy=None, retries=60):
+    async def send_keepalive(self, app_id: str, email: str, token: str, proxy=None, retries=60):
         url = f"https://www.aeropres.in/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
-        data = json.dumps({"username":email, "extensionid":self.extension_id, "numberoftabs":0, "_v":"1.1.1"})
+        data = json.dumps({"username":email, "extensionid":self.extension_id, "numberoftabs":0, "_v":"1.1.2"})
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
@@ -204,7 +204,7 @@ class Dawn:
             except ValueError:
                 print(f"{Fore.RED + Style.BRIGHT}Invalid input. Enter a number (1, 2 or 3).{Style.RESET_ALL}")
         
-    async def process_accounts(self, app_id: str, token: str, email: str, use_proxy: bool):
+    async def process_accounts(self, app_id: str, email: str, token: str, use_proxy: bool):
         hide_email = self.hide_email(email)
         proxy = None
 
@@ -251,7 +251,7 @@ class Dawn:
             )
             await asyncio.sleep(1)
 
-            keepalive = await self.send_keepalive(app_id, token, email)
+            keepalive = await self.send_keepalive(app_id, email, token)
             if not keepalive:
                 self.log(
                     f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
@@ -332,7 +332,7 @@ class Dawn:
                 )
                 await asyncio.sleep(1)
 
-                keepalive = await self.send_keepalive(app_id, token, email, proxy)
+                keepalive = await self.send_keepalive(app_id, email, token, proxy)
                 if not keepalive:
                     self.log(
                         f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
@@ -390,21 +390,13 @@ class Dawn:
 
                 for account in accounts:
                     app_id = self.generate_app_id()
-                    token = account.get('Token')
-                    email = account.get('Email', 'Unknown Email')
+                    email = account['Email']
+                    token = account['Token']
 
-                    if not token:
-                        self.log(
-                            f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
-                            f"{Fore.WHITE + Style.BRIGHT} {email} {Style.RESET_ALL}"
-                            f"{Fore.YELLOW + Style.BRIGHT}Token Not Found in 'accounts.json'{Style.RESET_ALL}"
-                            f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}"
-                        )
-                        continue
-
-                    await self.process_accounts(app_id, token, email, use_proxy)
-                    self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
-                    await asyncio.sleep(3)
+                    if app_id and email and token:
+                        await self.process_accounts(app_id, token, email, use_proxy)
+                        self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
+                        await asyncio.sleep(3)
 
                 seconds = 120
                 while seconds > 0:
