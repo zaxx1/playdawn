@@ -394,7 +394,7 @@ class Dawn:
                     token = account['Token']
 
                     if app_id and email and token:
-                        await self.process_accounts(app_id, token, email, use_proxy)
+                        await self.process_accounts(app_id, email, token, use_proxy)
                         self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
                         await asyncio.sleep(3)
 
