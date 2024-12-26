@@ -10,7 +10,7 @@ Use Code : 02lt4r
   - Auto Run With Auto Proxy if u Choose 1 [Use [Monosans Proxy](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt)]
   - Auto Run With Manual Proxy if u Choose 2 [Paste Ur personal proxy in manual_proxy.txt]
   - Auto Run Without Proxy if u Choose 3
-  - Auto Renew Proxy Every 30 Minutes if u Choose Run With Auto Proxy - Change Interval in Line 357
+  - Auto Renew Proxy Every 30 Minutes if u Choose Run With Auto Proxy - Change Interval in Line 377
   - Auto Send Keep-Alive
   - Multi Account
 

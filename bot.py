@@ -157,7 +157,7 @@ class Dawn:
                     
                     response.raise_for_status()
                     result = await response.json()
-                    return result['data']['rewardPoint']
+                    return result['data']
         except (Exception, ClientResponseError) as e:
             return None
         
@@ -220,7 +220,17 @@ class Dawn:
                 )
                 return
             
-            total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
+            referral_point = user["referralPoint"]
+            reward_point = user["rewardPoint"]
+
+            commission_value = referral_point.get("commission", 0)
+
+            total_reward_points = sum(
+                value for key, value in reward_point.items()
+                if "points" in key.lower() and isinstance(value, (int, float))
+            )
+
+            total_points = commission_value + total_reward_points
             self.log(
                 f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
                 f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
@@ -291,7 +301,17 @@ class Dawn:
                     proxy = self.check_proxy_schemes(proxies)
                     continue
 
-                total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
+                referral_point = user["referralPoint"]
+                reward_point = user["rewardPoint"]
+
+                commission_value = referral_point.get("commission", 0)
+
+                total_reward_points = sum(
+                    value for key, value in reward_point.items()
+                    if "points" in key.lower() and isinstance(value, (int, float))
+                )
+                
+                total_points = commission_value + total_reward_points
                 self.log(
                     f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
                     f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
