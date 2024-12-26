@@ -7,11 +7,10 @@ Use Code : 02lt4r
 ## Fitur
 
   - Auto Get Account Information
-  - Auto Run With Auto Proxy if u Choose 1
-  - Auto Use [Monosans Proxy](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt) if u Choose Run With Auto Proxy
-  - Auto Renew Proxy if u Choose Run With Auto Proxy
-  - Auto Run With Manual Proxy if u Choose 2
+  - Auto Run With Auto Proxy if u Choose 1 [Use [Monosans Proxy](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt)]
+  - Auto Run With Manual Proxy if u Choose 2 [Paste Ur personal proxy in manual_proxy.txt]
   - Auto Run Without Proxy if u Choose 3
+  - Auto Renew Proxy Every 30 Minutes if u Choose Run With Auto Proxy - Change Interval in Line 357
   - Auto Send Keep-Alive
   - Multi Account
 

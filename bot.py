@@ -135,16 +135,6 @@ class Dawn:
         hide_token = token[:3] + '*' * 3 + token[-3:]
         return hide_token
         
-    async def cek_ip(self, proxy=None):
-        connector = ProxyConnector.from_url(proxy) if proxy else None
-        try:
-            async with ClientSession(connector=connector, timeout=ClientTimeout(total=20)) as session:
-                async with session.get('https://ipinfo.io/json') as response:
-                    response.raise_for_status()
-                    return await response.json()
-        except (Exception, ClientResponseError) as e:
-            return None
-        
     async def user_data(self, app_id: str, token: str, proxy=None):
         url = f"https://www.aeropres.in/api/atom/v1/userreferral/getpoint?appid={app_id}"
         headers = {
@@ -219,21 +209,7 @@ class Dawn:
         proxy = None
 
         if not use_proxy:
-            my_ip = await self.cek_ip()
-            if my_ip:
-                self.log(
-                    f"{Fore.MAGENTA + Style.BRIGHT}[ IP{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} {my_ip['ip']} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Country{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} {my_ip['country']} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} {my_ip['region']} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-                )
-            await asyncio.sleep(1)
-
             user = await self.user_data(app_id, token)
-            
             if not user:
                 self.log(
                     f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
@@ -291,21 +267,7 @@ class Dawn:
             proxy = self.check_proxy_schemes(proxies)
             
             while user is None:
-                my_ip = await self.cek_ip(proxy)
-                if my_ip:
-                    self.log(
-                        f"{Fore.MAGENTA + Style.BRIGHT}[ IP{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {my_ip['ip']} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}] [ Country{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {my_ip['country']} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {my_ip['region']} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-                    )
-                await asyncio.sleep(1)
-
                 user = await self.user_data(app_id, token, proxy)
-                
                 if not user:
                     self.log(
                         f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
@@ -329,47 +291,46 @@ class Dawn:
                     proxy = self.check_proxy_schemes(proxies)
                     continue
 
-            await self.cek_ip(proxy)
-            total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
-            self.log(
-                f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
-                f"{Fore.GREEN + Style.BRIGHT}Login Success{Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT} ] [ Balance{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} Points {Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-            )
-            await asyncio.sleep(1)
-
-            print(
-                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                f"{Fore.BLUE + Style.BRIGHT}Try to Sent Ping,{Style.RESET_ALL}"
-                f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
-                end="\r",
-                flush=True
-            )
-            await asyncio.sleep(1)
-
-            keepalive = await self.send_keepalive(app_id, token, email, proxy)
-            if not keepalive:
+                total_points = sum(value for key, value in user.items() if 'points' in key and isinstance(value, (int, float)))
                 self.log(
-                    f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
-                    f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
+                    f"{Fore.GREEN + Style.BRIGHT}Login Success{Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT} ] [ Balance{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} Points {Style.RESET_ALL}"
                     f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
                 )
-                return
+                await asyncio.sleep(1)
 
-            if keepalive:
-                self.log(
-                    f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
-                    f"{Fore.GREEN + Style.BRIGHT} Keep Alive Recorded {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                print(
+                    f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                    f"{Fore.BLUE + Style.BRIGHT}Try to Sent Ping,{Style.RESET_ALL}"
+                    f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
+                    end="\r",
+                    flush=True
                 )
+                await asyncio.sleep(1)
+
+                keepalive = await self.send_keepalive(app_id, token, email, proxy)
+                if not keepalive:
+                    self.log(
+                        f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                    )
+                    return
+
+                if keepalive:
+                    self.log(
+                        f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
+                        f"{Fore.GREEN + Style.BRIGHT} Keep Alive Recorded {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                    )
     
     async def main(self):
         try:
@@ -393,7 +354,7 @@ class Dawn:
             self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
 
             last_proxy_update = None
-            proxy_update_interval = 1800
+            proxy_update_interval = 1800 # U can change it. (in seconds)
 
             if use_proxy and use_proxy_choice == 1:
                 await self.load_auto_proxies()
