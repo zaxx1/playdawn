@@ -220,8 +220,8 @@ class Dawn:
                 )
                 return
             
-            referral_point = user["referralPoint"]
-            reward_point = user["rewardPoint"]
+            referral_point = user.get("referralPoint", {})
+            reward_point = user.get("rewardPoint", {})
 
             commission_value = referral_point.get("commission", 0)
 
@@ -301,8 +301,8 @@ class Dawn:
                     proxy = self.check_proxy_schemes(proxies)
                     continue
 
-                referral_point = user["referralPoint"]
-                reward_point = user["rewardPoint"]
+                referral_point = user.get("referralPoint", {})
+                reward_point = user.get("rewardPoint", {})
 
                 commission_value = referral_point.get("commission", 0)
 
