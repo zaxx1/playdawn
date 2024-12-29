@@ -433,6 +433,7 @@ class Dawn:
                         tasks.append(self.process_accounts(app_id, email, token, use_proxy))
 
                 await asyncio.gather(*tasks)
+                await asyncio.sleep(3)
 
         except Exception as e:
             self.log(f"{Fore.RED+Style.BRIGHT}Error: {e}{Style.RESET_ALL}")
