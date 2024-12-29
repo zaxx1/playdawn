@@ -107,7 +107,7 @@ class Dawn:
         if any(proxies.startswith(scheme) for scheme in schemes):
             return proxies
         
-        return f"http://{proxies}"
+        return f"http://{proxies}" # Change with yours proxy schemes if your proxy not have schemes [http:// or socks5://]
 
     def load_accounts(self):
         try:
@@ -135,35 +135,49 @@ class Dawn:
         hide_token = token[:3] + '*' * 3 + token[-3:]
         return hide_token
         
-    async def user_data(self, app_id: str, token: str, proxy=None):
+    async def user_data(self, app_id: str, email: str, token: str, proxy=None, retries=3):
         url = f"https://www.aeropres.in/api/atom/v1/userreferral/getpoint?appid={app_id}"
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
             "Content-Type": "application/json",
         }
-        connector = ProxyConnector.from_url(proxy) if proxy else None
-        try:
-            async with ClientSession(connector=connector, timeout=ClientTimeout(total=20)) as session:
-                async with session.get(url=url, headers=headers) as response:
-                    if response.status == 400:
-                        self.log(
-                            f"{Fore.MAGENTA + Style.BRIGHT}[ Token{Style.RESET_ALL}"
-                            f"{Fore.WHITE + Style.BRIGHT} {self.hide_token(token)} {Style.RESET_ALL}"
-                            f"{Fore.RED + Style.BRIGHT}Is Expired{Style.RESET_ALL}"
-                            f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}"
-                        )
-                        return
-                    
-                    response.raise_for_status()
-                    result = await response.json()
-                    return result['data']
-        except (Exception, ClientResponseError) as e:
-            return None
+        for attempt in range(retries):
+            connector = ProxyConnector.from_url(proxy) if proxy else None
+            try:
+                async with ClientSession(connector=connector, timeout=ClientTimeout(total=20)) as session:
+                    async with session.get(url=url, headers=headers) as response:
+                        if response.status == 400:
+                            self.log(
+                                f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                                f"{Fore.WHITE + Style.BRIGHT} {self.hide_email(email)} {Style.RESET_ALL}"
+                                f"{Fore.RED + Style.BRIGHT}Token Is Expired{Style.RESET_ALL}"
+                                f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}"
+                            )
+                            return
+                        
+                        response.raise_for_status()
+                        result = await response.json()
+                        return result['data']
+            except (Exception, ClientResponseError) as e:
+                if attempt < retries - 1:
+                    self.log(
+                        f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} {self.hide_email(email)} {Style.RESET_ALL}"
+                        f"{Fore.RED + Style.BRIGHT}Login Failed{Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT}Retrying...{Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}",
+                        end="\r",
+                        flush=True
+                    )
+                    await asyncio.sleep(2)
+                else:
+                    return None
         
     async def send_keepalive(self, app_id: str, email: str, token: str, proxy=None, retries=60):
         url = f"https://www.aeropres.in/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
-        data = json.dumps({"username":email, "extensionid":self.extension_id, "numberoftabs":0, "_v":"1.1.2"})
+        data = json.dumps({"username":email, "extensionid":self.extension_id, "numberoftabs":0, "_v":"1.1.1"})
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
@@ -209,7 +223,7 @@ class Dawn:
         proxy = None
 
         if not use_proxy:
-            user = await self.user_data(app_id, token)
+            user = await self.user_data(app_id, email, token)
             if not user:
                 self.log(
                     f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
@@ -251,21 +265,36 @@ class Dawn:
             )
             await asyncio.sleep(1)
 
-            keepalive = await self.send_keepalive(app_id, email, token)
-            if not keepalive:
-                self.log(
-                    f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
-                    f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-                )
-                return
+            while True:
+                keepalive = await self.send_keepalive(app_id, email, token)
+                if not keepalive:
+                    self.log(
+                        f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} Ping Sent With Proxy {proxy} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                    )
+                    await asyncio.sleep(1)
 
-            if keepalive:
+                    print(
+                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                        f"{Fore.BLUE + Style.BRIGHT}Next Ping in 3 Minutes.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
+                        end="\r"
+                    )
+                    await asyncio.sleep(180)
+
+                    continue
+
                 self.log(
-                    f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} Ping Sent With Proxy {proxy} {Style.RESET_ALL}"
                     f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
                     f"{Fore.GREEN + Style.BRIGHT} Keep Alive Recorded {Style.RESET_ALL}"
                     f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
@@ -277,7 +306,7 @@ class Dawn:
             proxy = self.check_proxy_schemes(proxies)
             
             while user is None:
-                user = await self.user_data(app_id, token, proxy)
+                user = await self.user_data(app_id, email, token, proxy)
                 if not user:
                     self.log(
                         f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
@@ -310,7 +339,7 @@ class Dawn:
                     value for key, value in reward_point.items()
                     if "points" in key.lower() and isinstance(value, (int, float))
                 )
-                
+
                 total_points = commission_value + total_reward_points
                 self.log(
                     f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
@@ -332,25 +361,52 @@ class Dawn:
                 )
                 await asyncio.sleep(1)
 
-                keepalive = await self.send_keepalive(app_id, email, token, proxy)
-                if not keepalive:
-                    self.log(
-                        f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-                    )
-                    return
+                while True:
+                    keepalive = await self.send_keepalive(app_id, email, token, proxy)
+                    if not keepalive:
+                        self.log(
+                            f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} Ping Sent With Proxy {proxy} {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
+                            f"{Fore.YELLOW + Style.BRIGHT} Keep Alive Not Recorded {Style.RESET_ALL}"
+                            f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                        )
+                        await asyncio.sleep(1)
 
-                if keepalive:
+                        print(
+                            f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                            f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                            f"{Fore.BLUE + Style.BRIGHT}Next Ping in 3 Minutes.{Style.RESET_ALL}"
+                            f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
+                            end="\r"
+                        )
+                        await asyncio.sleep(180)
+
+                        proxies = self.get_next_proxy()
+                        proxy = self.check_proxy_schemes(proxies)
+                        continue
+
                     self.log(
-                        f"{Fore.MAGENTA + Style.BRIGHT}[ Ping{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} Sent With Proxy {proxy} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} Ping Sent With Proxy {proxy} {Style.RESET_ALL}"
                         f"{Fore.MAGENTA + Style.BRIGHT}] [ Status{Style.RESET_ALL}"
                         f"{Fore.GREEN + Style.BRIGHT} Keep Alive Recorded {Style.RESET_ALL}"
                         f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
                     )
+                    await asyncio.sleep(1)
+
+                    print(
+                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                        f"{Fore.BLUE + Style.BRIGHT}Next Ping in 3 Minutes.{Style.RESET_ALL}"
+                        f"{Fore.YELLOW + Style.BRIGHT} Wait... {Style.RESET_ALL}",
+                        end="\r"
+                    )
+                    await asyncio.sleep(180)
     
     async def main(self):
         try:
@@ -373,44 +429,23 @@ class Dawn:
             )
             self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
 
-            last_proxy_update = None
-            proxy_update_interval = 1800 # U can change it. (in seconds)
-
             if use_proxy and use_proxy_choice == 1:
                 await self.load_auto_proxies()
-                last_proxy_update = datetime.now()
             elif use_proxy and use_proxy_choice == 2:
                 await self.load_manual_proxy()
 
             while True:
-                if use_proxy and use_proxy_choice == 1:
-                    if not last_proxy_update or (datetime.now() - last_proxy_update).total_seconds() > proxy_update_interval:
-                        await self.load_auto_proxies()
-                        last_proxy_update = datetime.now()
-
+                tasks = []
                 for account in accounts:
                     app_id = self.generate_app_id()
                     email = account['Email']
                     token = account['Token']
 
                     if app_id and email and token:
-                        await self.process_accounts(app_id, email, token, use_proxy)
-                        self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
-                        await asyncio.sleep(3)
+                        tasks.append(self.process_accounts(app_id, email, token, use_proxy))
 
-                seconds = 120
-                while seconds > 0:
-                    formatted_time = self.format_seconds(seconds)
-                    print(
-                        f"{Fore.CYAN+Style.BRIGHT}[ Wait for{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} {formatted_time} {Style.RESET_ALL}"
-                        f"{Fore.CYAN+Style.BRIGHT}... ]{Style.RESET_ALL}"
-                        f"{Fore.WHITE+Style.BRIGHT} | {Style.RESET_ALL}"
-                        f"{Fore.BLUE+Style.BRIGHT}All Accounts Have Been Processed.{Style.RESET_ALL}",
-                        end="\r"
-                    )
-                    await asyncio.sleep(1)
-                    seconds -= 1
+                await asyncio.gather(*tasks)
+                await asyncio.sleep(5)
 
         except Exception as e:
             self.log(f"{Fore.RED+Style.BRIGHT}Error: {e}{Style.RESET_ALL}")
