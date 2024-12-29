@@ -161,7 +161,7 @@ class Dawn:
                         return result['data']
             except (Exception, ClientResponseError) as e:
                 if attempt < retries - 1:
-                    self.log(
+                    print(
                         f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
                         f"{Fore.WHITE + Style.BRIGHT} {self.hide_email(email)} {Style.RESET_ALL}"
                         f"{Fore.RED + Style.BRIGHT}Login Failed{Style.RESET_ALL}"
