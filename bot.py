@@ -162,6 +162,8 @@ class Dawn:
             except (Exception, ClientResponseError) as e:
                 if attempt < retries - 1:
                     print(
+                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
                         f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
                         f"{Fore.WHITE + Style.BRIGHT} {self.hide_email(email)} {Style.RESET_ALL}"
                         f"{Fore.RED + Style.BRIGHT}Login Failed{Style.RESET_ALL}"
