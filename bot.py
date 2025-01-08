@@ -124,7 +124,9 @@ class Dawn:
             return []
             
     def generate_app_id(self):
-        return uuid.uuid4().hex
+        prefix = "677eb"
+        app_id = prefix + uuid.uuid4().hex[len(prefix):]
+        return app_id
     
     def hide_email(self, email):
         local, domain = email.split('@', 1)
@@ -281,8 +283,8 @@ class Dawn:
             self.log(
                 f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
                 f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} Earning {total_points:.0f} Points {Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT}] [ Earning{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} Total {total_points:.0f} Points {Style.RESET_ALL}"
                 f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}               "
             )
             await asyncio.sleep(1)
@@ -347,8 +349,8 @@ class Dawn:
                     self.log(
                         f"{Fore.MAGENTA + Style.BRIGHT}[ Account{Style.RESET_ALL}"
                         f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} Earning {total_points:.0f} Points {Style.RESET_ALL}"
+                        f"{Fore.MAGENTA + Style.BRIGHT}] [ Earning{Style.RESET_ALL}"
+                        f"{Fore.WHITE + Style.BRIGHT} Total {total_points:.0f} Points {Style.RESET_ALL}"
                         f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}                "
                     )
                 else:
