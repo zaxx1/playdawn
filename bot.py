@@ -198,7 +198,7 @@ class Dawn:
             
     async def process_user_earning(self, app_id: str, email: str, token: str, proxy=None):
         while True:
-            await asyncio.sleep(5 * 60)
+            await asyncio.sleep(10 * 60)
             user = await self.user_data(app_id, email, token, proxy)
             if user:
                 referral_point = user.get("referralPoint", {}).get("commission", 0)
@@ -253,7 +253,7 @@ class Dawn:
                 end="\r",
                 flush=True
             )
-            await asyncio.sleep(5 * 60)
+            await asyncio.sleep(3 * 60)
             
     def print_question(self):
         while True:
