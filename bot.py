@@ -4,9 +4,9 @@ from aiohttp import (
     ClientTimeout
 )
 from aiohttp_socks import ProxyConnector
-from colorama import *
-from datetime import datetime
 from fake_useragent import FakeUserAgent
+from datetime import datetime
+from colorama import *
 import asyncio, json, os, pytz, uuid
 
 wib = pytz.timezone('Asia/Jakarta')
@@ -24,7 +24,6 @@ class Dawn:
             "Sec-Fetch-Site": "cross-site",
             "User-Agent": FakeUserAgent().random
         }
-        self.extension_id = "fpdkjdnhkakefebpekbdhillbhonfjjp"
         self.proxies = []
         self.proxy_index = 0
 
@@ -124,30 +123,35 @@ class Dawn:
             return []
             
     def generate_app_id(self):
-        prefix = "677eb"
+        prefix = "67"
         app_id = prefix + uuid.uuid4().hex[len(prefix):]
         return app_id
     
-    def hide_email(self, email):
-        local, domain = email.split('@', 1)
-        hide_local = local[:3] + '*' * 3 + local[-3:]
-        return f"{hide_local}@{domain}"
+    def mask_account(self, account):
+        if "@" in account:
+            local, domain = account.split('@', 1)
+            mask_account = local[:3] + '*' * 3 + local[-3:]
+            return f"{mask_account}@{domain}"
+        
+        mask_account = account[:3] + '*' * 3 + account[-3:]
+        return mask_account
     
-    def hide_token(self, token):
-        hide_token = token[:3] + '*' * 3 + token[-3:]
-        return hide_token
-    
-    def print_message(self, email: str, token: str):
-        return self.log(
+    def print_message(self, email, proxy, action, reason):
+        self.log(
             f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
-            f"{Fore.WHITE + Style.BRIGHT} {self.hide_email(email)} {Style.RESET_ALL}"
+            f"{Fore.WHITE + Style.BRIGHT} {self.mask_account(email)} {Style.RESET_ALL}"
             f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-            f"{Fore.CYAN + Style.BRIGHT} Status: {Style.RESET_ALL}"
-            f"{Fore.RED + Style.BRIGHT}Token {self.hide_token(token)} Is Expired{Style.RESET_ALL}"
-            f"{Fore.CYAN + Style.BRIGHT} ]{Style.RESET_ALL}"
+            f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
+            f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
+            f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
+            f"{Fore.CYAN + Style.BRIGHT}Status:{Style.RESET_ALL}"
+            f"{Fore.YELLOW + Style.BRIGHT} {action} {Style.RESET_ALL}"
+            f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+            f"{Fore.RED + Style.BRIGHT} {str(reason)} {Style.RESET_ALL}"
+            f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
         )
         
-    async def user_data(self, app_id: str, email: str, token: str, proxy=None, retries=5):
+    async def user_data(self, app_id: str, email: str, token: str, proxy=None, retries=3):
         url = f"https://www.aeropres.in/api/atom/v1/userreferral/getpoint?appid={app_id}"
         headers = {
             **self.headers,
@@ -159,22 +163,19 @@ class Dawn:
             try:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
                     async with session.get(url=url, headers=headers) as response:
-                        if response.status == 400:
-                            return self.log(email, token)
-                        
                         response.raise_for_status()
                         result = await response.json()
                         return result['data']
             except (Exception, ClientResponseError) as e:
                 if attempt < retries - 1:
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(5)
                     continue
                 
-                return None
+                return self.print_message(email, proxy, "GET Earning Data Failed", e)
         
-    async def send_keepalive(self, app_id: str, email: str, token: str, proxy=None, retries=5):
+    async def send_keepalive(self, app_id: str, email: str, token: str, proxy=None, retries=60):
         url = f"https://www.aeropres.in/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
-        data = json.dumps({"username":email, "extensionid":self.extension_id, "numberoftabs":0, "_v":"1.1.2"})
+        data = json.dumps({"username":email, "extensionid":"fpdkjdnhkakefebpekbdhillbhonfjjp", "numberoftabs":0, "_v":"1.1.2"})
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
@@ -186,19 +187,75 @@ class Dawn:
             try:
                 async with ClientSession(connector=connector, timeout=ClientTimeout(total=60)) as session:
                     async with session.post(url=url, headers=headers, data=data) as response:
-                        if response.status == 400:
-                            return self.log(email, token)
-                        
                         response.raise_for_status()
                         return await response.json()
             except (Exception, ClientResponseError) as e:
                 if attempt < retries - 1:
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(2)
                     continue
                 
-                return None
+                return self.print_message(email, proxy, "PING Failed", e)
             
-    async def question(self):
+    async def process_user_earning(self, app_id: str, email: str, token: str, proxy=None):
+        while True:
+            await asyncio.sleep(5 * 60)
+            user = await self.user_data(app_id, email, token, proxy)
+            if user:
+                referral_point = user.get("referralPoint", {}).get("commission", 0)
+                reward_point = user.get("rewardPoint", {})
+                reward_points = sum(
+                    value for key, value in reward_point.items()
+                    if "points" in key.lower() and isinstance(value, (int, float))
+                )
+
+                total_points = referral_point + reward_points
+
+                self.log(
+                    f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {self.mask_account(email)} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
+                    f"{Fore.CYAN + Style.BRIGHT}Earning:{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} PTS {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                )         
+
+    async def process_send_keepalive(self, app_id: str, email: str, token: str, proxy=None):
+        while True:
+            print(
+                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                f"{Fore.BLUE + Style.BRIGHT}Try to Sent Ping...{Style.RESET_ALL}                                    ",
+                end="\r",
+                flush=True
+            )
+
+            keepalive = await self.send_keepalive(app_id, email, token, proxy)
+            if keepalive:
+                self.log(
+                    f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT} {self.mask_account(email)} {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                    f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
+                    f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
+                    f"{Fore.CYAN + Style.BRIGHT}Status:{Style.RESET_ALL}"
+                    f"{Fore.GREEN + Style.BRIGHT} PING Success {Style.RESET_ALL}"
+                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+                )
+
+            print(
+                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                f"{Fore.BLUE + Style.BRIGHT}Wait For 5 Minutes For Next Ping...{Style.RESET_ALL}",
+                end="\r",
+                flush=True
+            )
+            await asyncio.sleep(5 * 60)
+            
+    def print_question(self):
         while True:
             try:
                 print("1. Run With Auto Proxy")
@@ -213,7 +270,6 @@ class Dawn:
                         "Without Proxy"
                     )
                     print(f"{Fore.GREEN + Style.BRIGHT}Run {proxy_type} Selected.{Style.RESET_ALL}")
-                    await asyncio.sleep(1)
                     return choose
                 else:
                     print(f"{Fore.RED + Style.BRIGHT}Please enter either 1, 2 or 3.{Style.RESET_ALL}")
@@ -221,107 +277,63 @@ class Dawn:
                 print(f"{Fore.RED + Style.BRIGHT}Invalid input. Enter a number (1, 2 or 3).{Style.RESET_ALL}")
         
     async def process_accounts(self, app_id: str, email: str, token: str, use_proxy: bool):
-        ping_count = 1
         proxy = None
 
         if use_proxy:
             proxy = self.get_next_proxy()
 
-        hide_email = self.hide_email(email)
+        user = None
+        while user is None:
+            print(
+                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
+                f"{Fore.BLUE + Style.BRIGHT}Try to GET User Earning...{Style.RESET_ALL}                             ",
+                end="\r",
+                flush=True
+            )
 
-        while True:
+            user = await self.user_data(app_id, email, token, proxy)
+            if not user:
 
-            user = None
-            while user is None:
-                user = await self.user_data(app_id, email, token, proxy)
-                if not user:
-                    self.log(
-                        f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                        f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
-                        f"{Fore.CYAN + Style.BRIGHT}Status:{Style.RESET_ALL}"
-                        f"{Fore.RED + Style.BRIGHT} GET User Data Failed {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-                    )
-                    await asyncio.sleep(1)
-
-                    if not use_proxy:
-                        return
-                
-                    print(
-                        f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                        f"{Fore.BLUE + Style.BRIGHT}Try With Next Proxy...{Style.RESET_ALL}",
-                        end="\r",
-                        flush=True
-                    )
-                    
+                message = "Retrying..."
+                if use_proxy:
+                    message = "Try With Next Proxy..."
                     proxy = self.get_next_proxy()
-                    continue
-
-                referral_point = user.get("referralPoint", {}).get("commission", 0)
-                reward_point = user.get("rewardPoint", {})
-                reward_points = sum(
-                    value for key, value in reward_point.items()
-                    if "points" in key.lower() and isinstance(value, (int, float))
-                )
-
-                total_points = referral_point + reward_points
 
                 print(
                     f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
                     f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                    f"{Fore.YELLOW + Style.BRIGHT}Try to Sent Ping...{Style.RESET_ALL}",
+                    f"{Fore.YELLOW + Style.BRIGHT}{message}{Style.RESET_ALL}                                  ",
                     end="\r",
                     flush=True
                 )
+                continue
 
-                keepalive = await self.send_keepalive(app_id, email, token, proxy)
-                if keepalive:
-                    self.log(
-                        f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                        f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
-                        f"{Fore.CYAN + Style.BRIGHT}Status:{Style.RESET_ALL}"
-                        f"{Fore.GREEN + Style.BRIGHT} PING {ping_count} Success {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                        f"{Fore.CYAN + Style.BRIGHT} Earning: {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}{total_points:.0f} PTS{Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}"
-                    )
-                else:
-                    self.log(
-                        f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT} {hide_email} {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                        f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
-                        f"{Fore.CYAN + Style.BRIGHT}Status:{Style.RESET_ALL}"
-                        f"{Fore.YELLOW + Style.BRIGHT} PING {ping_count} Failed {Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                        f"{Fore.CYAN + Style.BRIGHT} Earning: {Style.RESET_ALL}"
-                        f"{Fore.WHITE + Style.BRIGHT}{total_points:.0f} PTS{Style.RESET_ALL}"
-                        f"{Fore.MAGENTA + Style.BRIGHT} ]{Style.RESET_ALL}"
-                    )
+            referral_point = user.get("referralPoint", {}).get("commission", 0)
+            reward_point = user.get("rewardPoint", {})
+            reward_points = sum(
+                value for key, value in reward_point.items()
+                if "points" in key.lower() and isinstance(value, (int, float))
+            )
 
-                ping_count += 1
+            total_points = referral_point + reward_points
 
-                print(
-                    f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                    f"{Fore.BLUE + Style.BRIGHT}Wait For 3 Minutes For Next Ping...{Style.RESET_ALL}",
-                    end="\r",
-                    flush=True
-                )
+            self.log(
+                f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} {self.mask_account(email)} {Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
+                f"{Fore.CYAN + Style.BRIGHT}Earning:{Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} PTS {Style.RESET_ALL}"
+                f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+            )
 
-            await asyncio.sleep(180)
+            tasks = []
+            tasks.append(asyncio.create_task(self.process_user_earning(app_id, email, token, proxy)))
+            tasks.append(asyncio.create_task(self.process_send_keepalive(app_id, email, token, proxy)))
+            await asyncio.gather(*tasks)
     
     async def main(self):
         try:
@@ -330,7 +342,7 @@ class Dawn:
                 self.log(f"{Fore.RED}No accounts loaded from 'accounts.json'.{Style.RESET_ALL}")
                 return
             
-            use_proxy_choice = await self.question()
+            use_proxy_choice = self.print_question()
 
             use_proxy = False
             if use_proxy_choice in [1, 2]:
@@ -360,7 +372,7 @@ class Dawn:
                         tasks.append(self.process_accounts(app_id, email, token, use_proxy))
 
                 await asyncio.gather(*tasks)
-                await asyncio.sleep(3)
+                await asyncio.sleep(10)
 
         except Exception as e:
             self.log(f"{Fore.RED+Style.BRIGHT}Error: {e}{Style.RESET_ALL}")
@@ -373,5 +385,5 @@ if __name__ == "__main__":
         print(
             f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
             f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-            f"{Fore.RED + Style.BRIGHT}[ EXIT ] Dawn - BOT{Style.RESET_ALL}",                                       
+            f"{Fore.RED + Style.BRIGHT}[ EXIT ] Dawn - BOT{Style.RESET_ALL}                                      ",                                       
         )
