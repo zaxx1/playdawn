@@ -10,7 +10,7 @@ Dawn Validator BOT
   - Auto Run With Auto Proxy if u Choose 1 [Use [Monosans Proxy](https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt)]
   - Auto Run With Manual Proxy if u Choose 2 [Paste Ur personal proxy in manual_proxy.txt]
   - Auto Run Without Proxy if u Choose 3
-  - Auto Send Keep-Alive Every 3 Minutes
+  - Auto Send Keep-Alive Every 5 Minutes
   - Multi Accounts With Threads
 
 ## Requiremnets
