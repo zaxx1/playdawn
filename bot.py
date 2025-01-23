@@ -26,6 +26,7 @@ class Dawn:
         }
         self.proxies = []
         self.proxy_index = 0
+        self.account_proxies = {}
 
     def clear_terminal(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -52,75 +53,74 @@ class Dawn:
         minutes, seconds = divmod(remainder, 60)
         return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
     
-    async def load_auto_proxies(self):
-        url = "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt"
-        try:
-            async with ClientSession(timeout=ClientTimeout(total=20)) as session:
-                async with session.get(url=url) as response:
-                    response.raise_for_status()
-                    content = await response.text()
-                    with open('proxy.txt', 'w') as f:
-                        f.write(content)
-
-                    self.proxies = content.splitlines()
-                    if not self.proxies:
-                        self.log(f"{Fore.RED + Style.BRIGHT}No proxies found in the downloaded list!{Style.RESET_ALL}")
-                        return
-                    
-                    self.log(f"{Fore.GREEN + Style.BRIGHT}Proxies successfully downloaded.{Style.RESET_ALL}")
-                    self.log(f"{Fore.YELLOW + Style.BRIGHT}Loaded {len(self.proxies)} proxies.{Style.RESET_ALL}")
-                    self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
-                    await asyncio.sleep(3)
-        except Exception as e:
-            self.log(f"{Fore.RED + Style.BRIGHT}Failed to load proxies: {e}{Style.RESET_ALL}")
-            return []
-        
-    async def load_manual_proxy(self):
-        try:
-            if not os.path.exists('manual_proxy.txt'):
-                print(f"{Fore.RED + Style.BRIGHT}Proxy file 'manual_proxy.txt' not found!{Style.RESET_ALL}")
-                return
-
-            with open('manual_proxy.txt', "r") as f:
-                proxies = f.read().splitlines()
-
-            self.proxies = proxies
-            self.log(f"{Fore.YELLOW + Style.BRIGHT}Loaded {len(self.proxies)} proxies.{Style.RESET_ALL}")
-            self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
-            await asyncio.sleep(3)
-        except Exception as e:
-            print(f"{Fore.RED + Style.BRIGHT}Failed to load manual proxies: {e}{Style.RESET_ALL}")
-            self.proxies = []
-
-    def check_proxy_schemes(self, proxies):
-        schemes = ["http://", "https://", "socks4://", "socks5://"]
-        if any(proxies.startswith(scheme) for scheme in schemes):
-            return proxies
-        
-        return f"http://{proxies}" # Change with yours proxy schemes if your proxy not have schemes [http:// or socks5://]
-
-    def get_next_proxy(self):
-        if not self.proxies:
-            self.log(f"{Fore.RED + Style.BRIGHT}No proxies available!{Style.RESET_ALL}")
-            return None
-
-        proxy = self.proxies[self.proxy_index]
-        self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
-        return self.check_proxy_schemes(proxy)
-
     def load_accounts(self):
+        filename = "accounts.json"
         try:
-            if not os.path.exists('accounts.json'):
-                self.log(f"{Fore.RED}File 'accounts.json' tidak ditemukan.{Style.RESET_ALL}")
+            if not os.path.exists(filename):
+                self.log(f"{Fore.RED}File {filename} Not Found.{Style.RESET_ALL}")
                 return
 
-            with open('accounts.json', 'r') as file:
+            with open(filename, 'r') as file:
                 data = json.load(file)
                 if isinstance(data, list):
                     return data
                 return []
         except json.JSONDecodeError:
             return []
+    
+    async def load_proxies(self, use_proxy_choice: bool):
+        filename = "proxy.txt"
+        try:
+            if use_proxy_choice == 1:
+                async with ClientSession(timeout=ClientTimeout(total=30)) as session:
+                    async with session.get("https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt") as response:
+                        response.raise_for_status()
+                        content = await response.text()
+                        with open(filename, 'w') as f:
+                            f.write(content)
+                        self.proxies = content.splitlines()
+            else:
+                if not os.path.exists(filename):
+                    self.log(f"{Fore.RED + Style.BRIGHT}File {filename} Not Found.{Style.RESET_ALL}")
+                    return
+                with open(filename, 'r') as f:
+                    self.proxies = f.read().splitlines()
+            
+            if not self.proxies:
+                self.log(f"{Fore.RED + Style.BRIGHT}No Proxies Found.{Style.RESET_ALL}")
+                return
+
+            self.log(
+                f"{Fore.GREEN + Style.BRIGHT}Proxies Total  : {Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT}{len(self.proxies)}{Style.RESET_ALL}"
+            )
+        
+        except Exception as e:
+            self.log(f"{Fore.RED + Style.BRIGHT}Failed To Load Proxies: {e}{Style.RESET_ALL}")
+            self.proxies = []
+
+    def check_proxy_schemes(self, proxies):
+        schemes = ["http://", "https://", "socks4://", "socks5://"]
+        if any(proxies.startswith(scheme) for scheme in schemes):
+            return proxies
+        return f"http://{proxies}"
+
+    def get_next_proxy_for_account(self, email):
+        if email not in self.account_proxies:
+            if not self.proxies:
+                return None
+            proxy = self.check_proxy_schemes(self.proxies[self.proxy_index])
+            self.account_proxies[email] = proxy
+            self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
+        return self.account_proxies[email]
+
+    def rotate_proxy_for_account(self, email):
+        if not self.proxies:
+            return None
+        proxy = self.check_proxy_schemes(self.proxies[self.proxy_index])
+        self.account_proxies[email] = proxy
+        self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
+        return proxy
             
     def generate_app_id(self):
         prefix = "67"
@@ -150,14 +150,36 @@ class Dawn:
             f"{Fore.RED + Style.BRIGHT} {str(reason)} {Style.RESET_ALL}"
             f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
         )
-        
-    async def user_data(self, app_id: str, email: str, token: str, proxy=None, retries=3):
+
+    def print_question(self):
+        while True:
+            try:
+                print("1. Run With Monosans Proxy")
+                print("2. Run With Private Proxy")
+                print("3. Run Without Proxy")
+                choose = int(input("Choose [1/2/3] -> ").strip())
+
+                if choose in [1, 2, 3]:
+                    proxy_type = (
+                        "Run With Monosans Proxy" if choose == 1 else 
+                        "Run With Private Proxy" if choose == 2 else 
+                        "Run Without Proxy"
+                    )
+                    print(f"{Fore.GREEN + Style.BRIGHT}{proxy_type} Selected.{Style.RESET_ALL}")
+                    return choose
+                else:
+                    print(f"{Fore.RED + Style.BRIGHT}Please enter either 1, 2 or 3.{Style.RESET_ALL}")
+            except ValueError:
+                print(f"{Fore.RED + Style.BRIGHT}Invalid input. Enter a number (1, 2 or 3).{Style.RESET_ALL}")
+
+    async def user_data(self, app_id: str, email: str, token: str, proxy=None, retries=5):
         url = f"https://www.aeropres.in/api/atom/v1/userreferral/getpoint?appid={app_id}"
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
             "Content-Type": "application/json",
         }
+
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
             try:
@@ -170,18 +192,19 @@ class Dawn:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
                     continue
-                
+
                 return self.print_message(email, proxy, "GET Earning Data Failed", e)
-        
-    async def send_keepalive(self, app_id: str, email: str, token: str, proxy=None, retries=60):
+
+    async def send_keepalive(self, app_id: str, email: str, token: str, use_proxy: bool, proxy=None, retries=5):
         url = f"https://www.aeropres.in/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
-        data = json.dumps({"username":email, "extensionid":"fpdkjdnhkakefebpekbdhillbhonfjjp", "numberoftabs":0, "_v":"1.1.2"})
+        data = json.dumps({"username": email, "extensionid": "fpdkjdnhkakefebpekbdhillbhonfjjp", "numberoftabs": 0, "_v": "1.1.2"})
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
             "Content-Length": str(len(data)),
             "Content-Type": "application/json",
         }
+
         for attempt in range(retries):
             connector = ProxyConnector.from_url(proxy) if proxy else None
             try:
@@ -191,14 +214,17 @@ class Dawn:
                         return await response.json()
             except (Exception, ClientResponseError) as e:
                 if attempt < retries - 1:
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(5)
                     continue
-                
+
+                if use_proxy:
+                    self.rotate_proxy_for_account(email)
+
                 return self.print_message(email, proxy, "PING Failed", e)
             
-    async def process_user_earning(self, app_id: str, email: str, token: str, proxy=None):
+    async def process_user_earning(self, app_id: str, email: str, token: str, use_proxy: bool):
         while True:
-            await asyncio.sleep(10 * 60)
+            proxy = self.get_next_proxy_for_account(email) if use_proxy else None
             user = await self.user_data(app_id, email, token, proxy)
             if user:
                 referral_point = user.get("referralPoint", {}).get("commission", 0)
@@ -220,10 +246,13 @@ class Dawn:
                     f"{Fore.CYAN + Style.BRIGHT}Earning:{Style.RESET_ALL}"
                     f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} PTS {Style.RESET_ALL}"
                     f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-                )         
+                )
 
-    async def process_send_keepalive(self, app_id: str, email: str, token: str, proxy=None):
+            await asyncio.sleep(15 * 60)    
+
+    async def process_send_keepalive(self, app_id: str, email: str, token: str, use_proxy: bool):
         while True:
+            proxy = self.get_next_proxy_for_account(email) if use_proxy else None
             print(
                 f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
                 f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
@@ -232,7 +261,7 @@ class Dawn:
                 flush=True
             )
 
-            keepalive = await self.send_keepalive(app_id, email, token, proxy)
+            keepalive = await self.send_keepalive(app_id, email, token, use_proxy, proxy)
             if keepalive:
                 self.log(
                     f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
@@ -253,93 +282,19 @@ class Dawn:
                 end="\r",
                 flush=True
             )
-            await asyncio.sleep(3 * 60)
-            
-    def print_question(self):
-        while True:
-            try:
-                print("1. Run With Auto Proxy")
-                print("2. Run With Manual Proxy")
-                print("3. Run Without Proxy")
-                choose = int(input("Choose [1/2/3] -> ").strip())
-
-                if choose in [1, 2, 3]:
-                    proxy_type = (
-                        "With Auto Proxy" if choose == 1 else 
-                        "With Manual Proxy" if choose == 2 else 
-                        "Without Proxy"
-                    )
-                    print(f"{Fore.GREEN + Style.BRIGHT}Run {proxy_type} Selected.{Style.RESET_ALL}")
-                    return choose
-                else:
-                    print(f"{Fore.RED + Style.BRIGHT}Please enter either 1, 2 or 3.{Style.RESET_ALL}")
-            except ValueError:
-                print(f"{Fore.RED + Style.BRIGHT}Invalid input. Enter a number (1, 2 or 3).{Style.RESET_ALL}")
+            await asyncio.sleep(5 * 60)
         
     async def process_accounts(self, app_id: str, email: str, token: str, use_proxy: bool):
-        proxy = None
-
-        if use_proxy:
-            proxy = self.get_next_proxy()
-
-        user = None
-        while user is None:
-            print(
-                f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                f"{Fore.BLUE + Style.BRIGHT}Try to GET User Earning...{Style.RESET_ALL}                             ",
-                end="\r",
-                flush=True
-            )
-
-            user = await self.user_data(app_id, email, token, proxy)
-            if not user:
-
-                message = "Retrying..."
-                if use_proxy:
-                    message = "Try With Next Proxy..."
-                    proxy = self.get_next_proxy()
-
-                print(
-                    f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                    f"{Fore.YELLOW + Style.BRIGHT}{message}{Style.RESET_ALL}                                  ",
-                    end="\r",
-                    flush=True
-                )
-                continue
-
-            referral_point = user.get("referralPoint", {}).get("commission", 0)
-            reward_point = user.get("rewardPoint", {})
-            reward_points = sum(
-                value for key, value in reward_point.items()
-                if "points" in key.lower() and isinstance(value, (int, float))
-            )
-
-            total_points = referral_point + reward_points
-
-            self.log(
-                f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} {self.mask_account(email)} {Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
-                f"{Fore.CYAN + Style.BRIGHT}Earning:{Style.RESET_ALL}"
-                f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} PTS {Style.RESET_ALL}"
-                f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-            )
-
-            tasks = []
-            tasks.append(asyncio.create_task(self.process_user_earning(app_id, email, token, proxy)))
-            tasks.append(asyncio.create_task(self.process_send_keepalive(app_id, email, token, proxy)))
-            await asyncio.gather(*tasks)
+        tasks = []
+        tasks.append(asyncio.create_task(self.process_user_earning(app_id, email, token, use_proxy)))
+        tasks.append(asyncio.create_task(self.process_send_keepalive(app_id, email, token, use_proxy)))
+        await asyncio.gather(*tasks)
     
     async def main(self):
         try:
             accounts = self.load_accounts()
             if not accounts:
-                self.log(f"{Fore.RED}No accounts loaded from 'accounts.json'.{Style.RESET_ALL}")
+                self.log(f"{Fore.RED + Style.BRIGHT}No Accounts Loaded From 'accounts.json'.{Style.RESET_ALL}")
                 return
             
             use_proxy_choice = self.print_question()
@@ -354,12 +309,11 @@ class Dawn:
                 f"{Fore.GREEN + Style.BRIGHT}Account's Total: {Style.RESET_ALL}"
                 f"{Fore.WHITE + Style.BRIGHT}{len(accounts)}{Style.RESET_ALL}"
             )
-            self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
 
-            if use_proxy and use_proxy_choice == 1:
-                await self.load_auto_proxies()
-            elif use_proxy and use_proxy_choice == 2:
-                await self.load_manual_proxy()
+            if use_proxy:
+                await self.load_proxies(use_proxy_choice)
+
+            self.log(f"{Fore.CYAN + Style.BRIGHT}-{Style.RESET_ALL}"*75)
 
             while True:
                 tasks = []
