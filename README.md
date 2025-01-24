@@ -13,6 +13,8 @@ Dawn Validator BOT
   - Auto Send Keep-Alive Every 5 Minutes
   - Multi Accounts With Threads
 
+- Note: Dawn Server may be experiencing problems receiving requests, please be patient.
+
 ## Requiremnets
 
 - Make sure you have Python3.9 or higher installed and pip.
