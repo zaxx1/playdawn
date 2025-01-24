@@ -195,7 +195,7 @@ class Dawn:
 
                 return self.print_message(email, proxy, "GET Earning Data Failed", e)
 
-    async def send_keepalive(self, app_id: str, email: str, token: str, use_proxy: bool, proxy=None, retries=5):
+    async def send_keepalive(self, app_id: str, email: str, token: str, use_proxy: bool, proxy=None, retries=60):
         url = f"https://www.aeropres.in/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
         data = json.dumps({"username": email, "extensionid": "fpdkjdnhkakefebpekbdhillbhonfjjp", "numberoftabs": 0, "_v": "1.1.2"})
         headers = {
@@ -214,7 +214,7 @@ class Dawn:
                         return await response.json()
             except (Exception, ClientResponseError) as e:
                 if attempt < retries - 1:
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(2)
                     continue
 
                 if use_proxy:
