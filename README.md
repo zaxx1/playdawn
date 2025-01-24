@@ -13,7 +13,7 @@ Dawn Validator BOT
   - Auto Send Keep-Alive Every 5 Minutes
   - Multi Accounts With Threads
 
-- Note: Dawn Server may be experiencing problems receiving requests, please be patient.
+Note: Dawn Server may be experiencing problems receiving requests, please be patient.
 
 ## Requiremnets
 
