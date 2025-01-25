@@ -217,7 +217,7 @@ class Dawn:
 
                 self.print_message(email, proxy, Fore.RED, f"PING Failed: {Fore.YELLOW+Style.BRIGHT}{str(e)}")
 
-                if "invalid proxy response" in str(e).lower():
+                if "invalid proxy response" in str(e).lower() or "429" in str(e):
                     proxy = self.rotate_proxy_for_account(email) if use_proxy else None
 
                 return None
