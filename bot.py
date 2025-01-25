@@ -215,9 +215,12 @@ class Dawn:
                     await asyncio.sleep(5)
                     continue
 
-                proxy = self.rotate_proxy_for_account(email) if use_proxy else None
+                self.print_message(email, proxy, Fore.RED, f"PING Failed: {Fore.YELLOW+Style.BRIGHT}{str(e)}")
 
-                return self.print_message(email, proxy, Fore.YELLOW, f"PING Failed: {Fore.RED+Style.BRIGHT}{str(e)}")
+                if "invalid proxy response" in str(e).lower():
+                    proxy = self.rotate_proxy_for_account(email) if use_proxy else None
+
+                return None
             
     async def process_user_earning(self, app_id: str, email: str, token: str, use_proxy: bool):
         while True:
