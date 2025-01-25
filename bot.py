@@ -68,7 +68,7 @@ class Dawn:
         except json.JSONDecodeError:
             return []
     
-    async def load_proxies(self, use_proxy_choice: bool):
+    async def load_proxies(self, use_proxy_choice: int):
         filename = "proxy.txt"
         try:
             if use_proxy_choice == 1:
@@ -136,7 +136,7 @@ class Dawn:
         mask_account = account[:3] + '*' * 3 + account[-3:]
         return mask_account
     
-    def print_message(self, email, proxy, action, reason):
+    def print_message(self, email, proxy, color, message):
         self.log(
             f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
             f"{Fore.WHITE + Style.BRIGHT} {self.mask_account(email)} {Style.RESET_ALL}"
@@ -145,10 +145,8 @@ class Dawn:
             f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
             f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
             f"{Fore.CYAN + Style.BRIGHT}Status:{Style.RESET_ALL}"
-            f"{Fore.YELLOW + Style.BRIGHT} {action} {Style.RESET_ALL}"
-            f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-            f"{Fore.RED + Style.BRIGHT} {str(reason)} {Style.RESET_ALL}"
-            f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
+            f"{color + Style.BRIGHT} {message} {Style.RESET_ALL}"
+            f"{Fore.CYAN + Style.BRIGHT}]{Style.RESET_ALL}"
         )
 
     def print_question(self):
@@ -193,7 +191,7 @@ class Dawn:
                     await asyncio.sleep(5)
                     continue
 
-                return self.print_message(email, proxy, "GET Earning Data Failed", e)
+                return self.print_message(email, proxy, Fore.YELLOW, f"GET Earning Data Failed: {Fore.RED+Style.BRIGHT}{str(e)}")
 
     async def send_keepalive(self, app_id: str, email: str, token: str, use_proxy: bool, proxy=None, retries=5):
         url = f"https://www.aeropres.in/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
@@ -217,10 +215,9 @@ class Dawn:
                     await asyncio.sleep(5)
                     continue
 
-                if use_proxy:
-                    self.rotate_proxy_for_account(email)
+                proxy = self.rotate_proxy_for_account(email) if use_proxy else None
 
-                return self.print_message(email, proxy, "PING Failed", e)
+                return self.print_message(email, proxy, Fore.YELLOW, f"PING Failed: {Fore.RED+Style.BRIGHT}{str(e)}")
             
     async def process_user_earning(self, app_id: str, email: str, token: str, use_proxy: bool):
         while True:
@@ -235,18 +232,7 @@ class Dawn:
                 )
 
                 total_points = referral_point + reward_points
-
-                self.log(
-                    f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} {self.mask_account(email)} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                    f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
-                    f"{Fore.CYAN + Style.BRIGHT}Earning:{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} {total_points:.0f} PTS {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-                )
+                self.print_message(email, proxy, Fore.WHITE, f"Earning {total_points:.0f} PTS")
 
             await asyncio.sleep(15 * 60)    
 
@@ -263,17 +249,7 @@ class Dawn:
 
             keepalive = await self.send_keepalive(app_id, email, token, use_proxy, proxy)
             if keepalive:
-                self.log(
-                    f"{Fore.CYAN + Style.BRIGHT}[ Account:{Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT} {self.mask_account(email)} {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
-                    f"{Fore.CYAN + Style.BRIGHT} Proxy: {Style.RESET_ALL}"
-                    f"{Fore.WHITE + Style.BRIGHT}{proxy}{Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT} - {Style.RESET_ALL}"
-                    f"{Fore.CYAN + Style.BRIGHT}Status:{Style.RESET_ALL}"
-                    f"{Fore.GREEN + Style.BRIGHT} PING Success {Style.RESET_ALL}"
-                    f"{Fore.MAGENTA + Style.BRIGHT}]{Style.RESET_ALL}"
-                )
+                self.print_message(email, proxy, Fore.GREEN, f"PING Success")
 
             print(
                 f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
@@ -286,15 +262,15 @@ class Dawn:
         
     async def process_accounts(self, app_id: str, email: str, token: str, use_proxy: bool):
         tasks = []
-        tasks.append(asyncio.create_task(self.process_user_earning(app_id, email, token, use_proxy)))
-        tasks.append(asyncio.create_task(self.process_send_keepalive(app_id, email, token, use_proxy)))
+        tasks.append(self.process_user_earning(app_id, email, token, use_proxy))
+        tasks.append(self.process_send_keepalive(app_id, email, token, use_proxy))
         await asyncio.gather(*tasks)
     
     async def main(self):
         try:
             accounts = self.load_accounts()
             if not accounts:
-                self.log(f"{Fore.RED + Style.BRIGHT}No Accounts Loaded From 'accounts.json'.{Style.RESET_ALL}")
+                self.log(f"{Fore.RED + Style.BRIGHT}No Accounts Loaded.{Style.RESET_ALL}")
                 return
             
             use_proxy_choice = self.print_question()
@@ -319,10 +295,10 @@ class Dawn:
                 tasks = []
                 for account in accounts:
                     app_id = self.generate_app_id()
-                    email = account['Email']
-                    token = account['Token']
+                    email = account.get('Email')
+                    token = account.get('Token')
 
-                    if app_id and email and token:
+                    if app_id and "@" in email and token:
                         tasks.append(self.process_accounts(app_id, email, token, use_proxy))
 
                 await asyncio.gather(*tasks)
