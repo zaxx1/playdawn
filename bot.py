@@ -16,8 +16,6 @@ class Dawn:
         self.headers = {
             "Accept": "*/*",
             "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Cache-Control": "no-cache",
-            "Host": "www.aeropres.in",
             "Origin": "chrome-extension://fpdkjdnhkakefebpekbdhillbhonfjjp",
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
@@ -195,7 +193,7 @@ class Dawn:
 
     async def send_keepalive(self, app_id: str, email: str, token: str, use_proxy: bool, proxy=None, retries=5):
         url = f"https://www.aeropres.in/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
-        data = json.dumps({"username": email, "extensionid": "fpdkjdnhkakefebpekbdhillbhonfjjp", "numberoftabs": 0, "_v": "1.1.2"})
+        data = json.dumps({"username": email, "extensionid": "fpdkjdnhkakefebpekbdhillbhonfjjp", "numberoftabs": 0, "_v": "1.1.3"})
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
