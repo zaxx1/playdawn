@@ -17,6 +17,7 @@ class Dawn:
             "Sec-Fetch-Site": "cross-site",
             "User-Agent": FakeUserAgent().random
         }
+        self.BASE_API = "https://ext-api.dawninternet.com"
         self.proxies = []
         self.proxy_index = 0
         self.account_proxies = {}
@@ -163,7 +164,7 @@ class Dawn:
                 print(f"{Fore.RED + Style.BRIGHT}Invalid input. Enter a number (1, 2 or 3).{Style.RESET_ALL}")
 
     async def user_data(self, app_id: str, email: str, token: str, proxy=None, retries=5):
-        url = f"https://ext-api.dawninternet.com/api/atom/v1/userreferral/getpoint?appid={app_id}"
+        url = f"{self.BASE_API}/api/atom/v1/userreferral/getpoint?appid={app_id}"
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
@@ -183,8 +184,8 @@ class Dawn:
                 return self.print_message(email, proxy, Fore.YELLOW, f"GET Earning Data Failed: {Fore.RED+Style.BRIGHT}{str(e)}")
 
     async def send_keepalive(self, app_id: str, email: str, token: str, use_proxy: bool, proxy=None, retries=5):
-        url = f"https://ext-api.dawninternet.com/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
-        data = json.dumps({"username":email, "extensionid":"fpdkjdnhkakefebpekbdhillbhonfjjp", "numberoftabs":0, "_v":"1.1.5"})
+        url = f"{self.BASE_API}/chromeapi/dawn/v1/userreward/keepalive?appid={app_id}"
+        data = json.dumps({"username":email, "extensionid":"fpdkjdnhkakefebpekbdhillbhonfjjp", "numberoftabs":0, "_v":"1.1.6"})
         headers = {
             **self.headers,
             "Authorization": f"Berear {token}",
@@ -196,7 +197,8 @@ class Dawn:
             try:
                 response = await asyncio.to_thread(requests.post, url=url, headers=headers, data=data, proxy=proxy, timeout=120, impersonate="chrome110")
                 response.raise_for_status()
-                return response.json()
+                result = response.json()
+                return result["data"]
             except Exception as e:
                 if attempt < retries - 1:
                     await asyncio.sleep(5)
@@ -220,7 +222,7 @@ class Dawn:
                 total_points = referral_point + reward_points
                 self.print_message(email, proxy, Fore.WHITE, f"Earning {total_points:.0f} PTS")
 
-            await asyncio.sleep(5 * 60)    
+            await asyncio.sleep(10 * 60)    
 
     async def process_send_keepalive(self, app_id: str, email: str, token: str, use_proxy: bool):
         while True:
@@ -234,17 +236,22 @@ class Dawn:
             )
 
             keepalive = await self.send_keepalive(app_id, email, token, use_proxy, proxy)
-            if keepalive:
-                self.print_message(email, proxy, Fore.GREEN, f"PING Success")
+            if keepalive and keepalive.get("success"):
+                server_name = keepalive.get("servername", "N/A")
+                self.print_message(email, proxy, Fore.GREEN, "PING Success "
+                f"{Fore.MAGENTA + Style.BRIGHT}-{Style.RESET_ALL}"
+                f"{Fore.CYAN + Style.BRIGHT} Server Name: {Style.RESET_ALL}"
+                f"{Fore.WHITE + Style.BRIGHT}{server_name}{Style.RESET_ALL}"
+                )
 
             print(
                 f"{Fore.CYAN + Style.BRIGHT}[ {datetime.now().astimezone(wib).strftime('%x %X %Z')} ]{Style.RESET_ALL}"
                 f"{Fore.WHITE + Style.BRIGHT} | {Style.RESET_ALL}"
-                f"{Fore.BLUE + Style.BRIGHT}Wait For 5 Minutes For Next Ping...{Style.RESET_ALL}",
+                f"{Fore.BLUE + Style.BRIGHT}Wait For 10 Minutes For Next Ping...{Style.RESET_ALL}",
                 end="\r",
                 flush=True
             )
-            await asyncio.sleep(5 * 60)
+            await asyncio.sleep(10 * 60)
         
     async def process_accounts(self, app_id: str, email: str, token: str, use_proxy: bool):
         tasks = [
